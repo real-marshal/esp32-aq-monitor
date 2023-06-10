@@ -42,11 +42,11 @@ void setup()
     Serial.println(errorMessage);
     return;
   }
-  // Want to try it out
-  error = scd30.activateAutoCalibration(1);
+  // First tests show no need in this function (plus it has some painful requirements)
+  error = scd30.activateAutoCalibration(0);
   if (error != NO_ERROR)
   {
-    Serial.print("Error trying to activate ASC: ");
+    Serial.print("Error trying to (dis-)activate ASC: ");
     errorToString(error, errorMessage, sizeof errorMessage);
     Serial.println(errorMessage);
     return;
