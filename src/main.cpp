@@ -8,6 +8,7 @@
 #include <SensirionI2CSgp41.h>
 #include <VOCGasIndexAlgorithm.h>
 #include <NOxGasIndexAlgorithm.h>
+#include <UI.h>
 
 // TODO: refactor this awful code & add color ranges for values
 
@@ -15,6 +16,10 @@
 // Never increase this value unless you want to burn the sensor
 #define SGP41_CONDITIONING_SECS 10
 #define SGP41_SAMPLING_INTERVAL 0.1f
+
+#define SECOND_COLUMN_OFFSET TFT_HEIGHT / 3 * 1.2
+#define THIRD_COLUMN_OFFSET TFT_HEIGHT / 3 * 2.2
+#define NC_COLUMN_OFFSET TFT_HEIGHT / 3 * 1.5
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -219,105 +224,83 @@ void loop()
     nox_index = nox_algorithm.process(srawNox);
   }
 
-  tft.setCursor(0, 0, 2);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  // UI rendering
+
   tft.setTextSize(1);
   tft.setTextFont(2);
 
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("CO2: ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(co2Concentration);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("ppm    T: ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(temperature);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("deg    RH: ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(humidity);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.println("%");
+  tft.setCursor(0, 0);
 
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("HCHO: ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(hcho / 5.0f);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("ppb   VOC: ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(voc_index);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("u   NOx: ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(nox_index);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.println("u");
+  writeMeasurement(tft, Measurement<float>("CO2", co2Concentration, "ppm"));
+  writeMeasurement(tft, Measurement<float>("HCHO", hcho / 5.0f, "ppb"));
+
+  tft.setCursor(SECOND_COLUMN_OFFSET, 0);
+
+  writeMeasurement(tft, Measurement<float>("T", temperature, "C"));
+
+  int16_t cursorY = tft.getCursorY();
+  tft.setCursor(SECOND_COLUMN_OFFSET, cursorY);
+
+  writeMeasurement(tft, Measurement<int8_t>("VOC", voc_index, ""));
 
   tft.println();
 
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("                          NC 0.5:  ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(sps30_m.nc_0p5);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.println("#/cm3");
+  tft.setCursor(THIRD_COLUMN_OFFSET, 0);
 
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("PM 1.0:  ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(sps30_m.mc_1p0);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("mcg/m3");
-  tft.print("  NC 1.0:  ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(sps30_m.nc_1p0);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.println("#/cm3");
+  writeMeasurement(tft, Measurement<float>("RH", humidity, "%"));
 
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("PM 2.5:  ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(sps30_m.mc_2p5);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("mcg/m3");
-  tft.print("  NC 2.5:  ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(sps30_m.nc_2p5);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.println("#/cm3");
+  cursorY = tft.getCursorY();
+  tft.setCursor(THIRD_COLUMN_OFFSET, cursorY);
 
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("PM 4.0:  ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(sps30_m.mc_4p0);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("mcg/m3");
-  tft.print("  NC 4.0:  ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(sps30_m.nc_4p0);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.println("#/cm3");
+  writeMeasurement(tft, Measurement<int8_t>("NOx", nox_index, ""));
 
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("PM 10.0: ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(sps30_m.mc_10p0);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("mcg/m3");
-  tft.print("  NC 10.0: ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(sps30_m.nc_10p0);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.println("#/cm3");
+  tft.println();
 
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.print("Avg particle diameter: ");
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(sps30_m.typical_particle_size);
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.println("nm");
+  cursorY = tft.getCursorY();
+  tft.setCursor(NC_COLUMN_OFFSET, cursorY);
+
+  writeMeasurement(tft, Measurement<float>("NC 0.5", sps30_m.nc_0p5, "#/cm3"), 1);
+
+  int16_t cursorYPM = tft.getCursorY();
+  tft.setCursor(NC_COLUMN_OFFSET, cursorYPM);
+
+  writeMeasurement(tft, Measurement<float>("NC 1.0", sps30_m.nc_1p0, "#/cm3"), 1);
+
+  cursorY = tft.getCursorY();
+  tft.setCursor(NC_COLUMN_OFFSET, cursorY);
+
+  writeMeasurement(tft, Measurement<float>("NC 2.5", sps30_m.nc_2p5, "#/cm3"), 1);
+
+  cursorY = tft.getCursorY();
+  tft.setCursor(NC_COLUMN_OFFSET, cursorY);
+
+  writeMeasurement(tft, Measurement<float>("NC 4.0", sps30_m.nc_4p0, "#/cm3"), 1);
+
+  cursorY = tft.getCursorY();
+  tft.setCursor(NC_COLUMN_OFFSET, cursorY);
+
+  writeMeasurement(tft, Measurement<float>("NC 10.0", sps30_m.nc_10p0, "#/cm3"));
+
+  tft.setCursor(0, cursorYPM);
+
+  writeMeasurement(tft, Measurement<float>("PM 1.0", sps30_m.mc_1p0, "mcg/m3"), 1);
+
+  cursorY = tft.getCursorY();
+  tft.setCursor(0, cursorY);
+
+  writeMeasurement(tft, Measurement<float>("PM 2.5", sps30_m.mc_2p5, "mcg/m3"), 1);
+
+  cursorY = tft.getCursorY();
+  tft.setCursor(0, cursorY);
+
+  writeMeasurement(tft, Measurement<float>("PM 4.0", sps30_m.mc_4p0, "mcg/m3"), 1);
+
+  cursorY = tft.getCursorY();
+  tft.setCursor(0, cursorY);
+
+  writeMeasurement(tft, Measurement<float>("PM 10.0", sps30_m.mc_10p0, "mcg/m3"));
+
+  writeMeasurement(tft, Measurement<float>("Avg particle diameter", sps30_m.typical_particle_size, "nm"));
 
   // All sensors require a delay before checking their readiness status
   delay(100);
