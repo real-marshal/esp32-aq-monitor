@@ -10,8 +10,6 @@
 #include <NOxGasIndexAlgorithm.h>
 #include <UI.h>
 
-// TODO: refactor this awful code & add color ranges for values
-
 #define SPS30_AUTO_CLEAN_DAYS 4
 // Never increase this value unless you want to burn the sensor
 #define SGP41_CONDITIONING_SECS 10
@@ -53,7 +51,7 @@ void setup()
   error = scd30.setTemperatureOffset(150);
   if (error != NO_ERROR)
   {
-    Serial.print("Error trying to set temperature offset: ");
+    Serial.print("SCD30 error trying to set temperature offset: ");
     errorToString(error, errorMessage, sizeof errorMessage);
     Serial.println(errorMessage);
     return;
@@ -62,7 +60,7 @@ void setup()
   error = scd30.activateAutoCalibration(0);
   if (error != NO_ERROR)
   {
-    Serial.print("Error trying to (dis-)activate ASC: ");
+    Serial.print("SCD30 error trying to (dis-)activate ASC: ");
     errorToString(error, errorMessage, sizeof errorMessage);
     Serial.println(errorMessage);
     return;
@@ -71,7 +69,7 @@ void setup()
   error = scd30.startPeriodicMeasurement(0);
   if (error != NO_ERROR)
   {
-    Serial.print("Error trying to execute startPeriodicMeasurement(): ");
+    Serial.print("SCD30 error trying to start measurements: ");
     errorToString(error, errorMessage, sizeof errorMessage);
     Serial.println(errorMessage);
     return;
@@ -82,7 +80,7 @@ void setup()
   error = sfa3x.startContinuousMeasurement();
   if (error)
   {
-    Serial.print("Error trying to execute startContinuousMeasurement(): ");
+    Serial.print("SFA30 error trying to start measurements: ");
     errorToString(error, errorMessage, 256);
     Serial.println(errorMessage);
   }
@@ -93,13 +91,13 @@ void setup()
   error = sgp41.executeSelfTest(testResult);
   if (error)
   {
-    Serial.print("Error trying to execute executeSelfTest(): ");
+    Serial.print("SGP41 error trying to execute self-test: ");
     errorToString(error, errorMessage, 256);
     Serial.println(errorMessage);
   }
   else if (testResult != 0xD400)
   {
-    Serial.print("executeSelfTest failed with error: ");
+    Serial.print("SGP41 self-test failed with error: ");
     Serial.println(testResult);
   }
 
@@ -122,7 +120,7 @@ void setup()
   error = sps30_start_measurement();
   if (error < 0)
   {
-    Serial.println("SPS30 error starting measurement");
+    Serial.println("SPS30 error starting measurements");
   }
 }
 
@@ -134,16 +132,25 @@ int16_t hcho;
 int16_t humidity_sfa;
 int16_t temperature_sfa;
 
-uint16_t defaultRh = 0x8000;
-uint16_t defaultT = 0x6666;
+uint16_t rhCompensation = 0x8000;
+uint16_t tCompensation = 0x6666;
 uint16_t srawVoc = 0;
 uint16_t srawNox = 0;
-int32_t voc_index = 0;
-int32_t nox_index = 0;
+int32_t vocIndex = 0;
+int32_t noxIndex = 0;
 
 struct sps30_measurement sps30_m;
 
 ulong initMillis = 0;
+
+HealthinessRange co2Range = {1000, 1500, 2000};
+HealthinessRange hchoRange = {30, 100, 300};
+HealthinessRange pm10Range = {25, 55, 85};
+HealthinessRange pm25Range = {30, 60, 90};
+HealthinessRange pm40Range = {35, 65, 95};
+HealthinessRange pm100Range = {50, 100, 150};
+HealthinessRange vocRange = {150, 300, 450};
+HealthinessRange noxRange = {50, 150, 250};
 
 void loop()
 {
@@ -200,16 +207,16 @@ void loop()
   }
 
   // SGP41
-  defaultRh = uint16_t(humidity) * 65535 / 100;
-  defaultT = (uint16_t(temperature) + 45) * 65535 / 175;
+  rhCompensation = uint16_t(humidity) * 65535 / 100;
+  tCompensation = (uint16_t(temperature) + 45) * 65535 / 175;
 
   if (millis() - initMillis < SGP41_CONDITIONING_SECS * 1000)
   {
-    error = sgp41.executeConditioning(defaultRh, defaultT, srawVoc);
+    error = sgp41.executeConditioning(rhCompensation, tCompensation, srawVoc);
   }
   else
   {
-    error = sgp41.measureRawSignals(defaultRh, defaultT, srawVoc, srawNox);
+    error = sgp41.measureRawSignals(rhCompensation, tCompensation, srawVoc, srawNox);
   }
 
   if (error)
@@ -220,8 +227,8 @@ void loop()
   }
   else
   {
-    voc_index = voc_algorithm.process(srawVoc);
-    nox_index = nox_algorithm.process(srawNox);
+    vocIndex = voc_algorithm.process(srawVoc);
+    noxIndex = nox_algorithm.process(srawNox);
   }
 
   // UI rendering
@@ -231,8 +238,8 @@ void loop()
 
   tft.setCursor(0, 0);
 
-  writeMeasurement(tft, Measurement<float>("CO2", co2Concentration, "ppm"));
-  writeMeasurement(tft, Measurement<float>("HCHO", hcho / 5.0f, "ppb"));
+  writeMeasurement(tft, Measurement<float>("CO2", co2Concentration, "ppm", &co2Range));
+  writeMeasurement(tft, Measurement<float>("HCHO", hcho / 5.0f, "ppb", &hchoRange));
 
   tft.setCursor(SECOND_COLUMN_OFFSET, 0);
 
@@ -241,7 +248,7 @@ void loop()
   int16_t cursorY = tft.getCursorY();
   tft.setCursor(SECOND_COLUMN_OFFSET, cursorY);
 
-  writeMeasurement(tft, Measurement<int8_t>("VOC", voc_index, ""));
+  writeMeasurement(tft, Measurement<int8_t>("VOC", vocIndex, "", &vocRange));
 
   tft.println();
 
@@ -252,7 +259,7 @@ void loop()
   cursorY = tft.getCursorY();
   tft.setCursor(THIRD_COLUMN_OFFSET, cursorY);
 
-  writeMeasurement(tft, Measurement<int8_t>("NOx", nox_index, ""));
+  writeMeasurement(tft, Measurement<int8_t>("NOx", noxIndex, "", &noxRange));
 
   tft.println();
 
@@ -283,22 +290,22 @@ void loop()
 
   tft.setCursor(0, cursorYPM);
 
-  writeMeasurement(tft, Measurement<float>("PM 1.0", sps30_m.mc_1p0, "mcg/m3"), 1);
+  writeMeasurement(tft, Measurement<float>("PM 1.0", sps30_m.mc_1p0, "mcg/m3", &pm10Range), 1);
 
   cursorY = tft.getCursorY();
   tft.setCursor(0, cursorY);
 
-  writeMeasurement(tft, Measurement<float>("PM 2.5", sps30_m.mc_2p5, "mcg/m3"), 1);
+  writeMeasurement(tft, Measurement<float>("PM 2.5", sps30_m.mc_2p5, "mcg/m3", &pm25Range), 1);
 
   cursorY = tft.getCursorY();
   tft.setCursor(0, cursorY);
 
-  writeMeasurement(tft, Measurement<float>("PM 4.0", sps30_m.mc_4p0, "mcg/m3"), 1);
+  writeMeasurement(tft, Measurement<float>("PM 4.0", sps30_m.mc_4p0, "mcg/m3", &pm40Range), 1);
 
   cursorY = tft.getCursorY();
   tft.setCursor(0, cursorY);
 
-  writeMeasurement(tft, Measurement<float>("PM 10.0", sps30_m.mc_10p0, "mcg/m3"));
+  writeMeasurement(tft, Measurement<float>("PM 10.0", sps30_m.mc_10p0, "mcg/m3", &pm100Range));
 
   writeMeasurement(tft, Measurement<float>("Avg particle diameter", sps30_m.typical_particle_size, "nm"));
 
