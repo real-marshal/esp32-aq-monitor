@@ -43,11 +43,11 @@ void writeMeasurement(TFT_eSPI &tft, const Measurement<T> &measurement, int extr
   tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
   tft.print(measurement.label + labelSuffix);
   tft.setTextColor(getValueColor(round(measurement.value), measurement.range), TFT_BLACK);
-  tft.setTextPadding(tft.textWidth("999", 2));
+  tft.setTextPadding(tft.textWidth("9999", 2));
   tft.print(measurement.value);
   tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
   tft.setTextPadding(tft.textWidth(measurement.unit + " ", 2));
-  tft.println(measurement.unit);
+  tft.println(measurement.unit + " ");
 }
 
 template struct Measurement<float>;

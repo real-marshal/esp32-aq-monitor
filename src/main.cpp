@@ -11,6 +11,8 @@
 #include <UI.h>
 #include <Preferences.h>
 
+// TODO: refactor and use task scheduler
+
 #define SPS30_AUTO_CLEAN_DAYS 4
 // Never increase this value unless you want to burn the sensor
 #define SGP41_CONDITIONING_SECS 10
@@ -26,7 +28,7 @@
 #define THIRD_COLUMN_OFFSET TFT_HEIGHT / 3 * 2.2
 #define NC_COLUMN_OFFSET TFT_HEIGHT / 3 * 1.5
 
-#define PREFERENCES_NAMESPACE "default_namespace"
+#define PREFERENCES_NAMESPACE "default"
 
 TFT_eSPI tft = TFT_eSPI();
 Preferences preferences;
@@ -269,14 +271,22 @@ void loop()
   if (millis() - initMillis >= SGP41_VOC_SAVE_STATE_BEGIN_MS && millis() - vocSaveMillis > SGP41_VOC_SAVE_STATE_INTERVAL_MS)
   {
     float state1, state2;
+    size_t ret = 1;
 
     voc_algorithm.get_states(state1, state2);
 
-    preferences.putFloat(SGP41_VOC_STATE1_KEY, state1);
-    preferences.putFloat(SGP41_VOC_STATE2_KEY, state2);
-    preferences.putULong(SGP41_VOC_STATE_TIMESTAMP_KEY, millis());
+    ret &= preferences.putFloat(SGP41_VOC_STATE1_KEY, state1);
+    ret &= preferences.putFloat(SGP41_VOC_STATE2_KEY, state2);
+    ret &= preferences.putULong(SGP41_VOC_STATE_TIMESTAMP_KEY, millis());
 
-    Serial.println("VOC state saved");
+    if (ret == 0)
+    {
+      Serial.println("VOC state save failed");
+    }
+    else
+    {
+      Serial.println("VOC state saved");
+    }
 
     vocSaveMillis = millis();
   }
