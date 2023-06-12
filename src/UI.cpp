@@ -1,7 +1,7 @@
 #include <UI.h>
 
 template <typename T>
-Measurement<T>::Measurement(String label, T value, String unit, HealthinessRange *range)
+Measurement<T>::Measurement(String label, T value, String unit, const HealthinessRange *range)
 {
   this->label = label;
   this->value = value;
@@ -18,7 +18,7 @@ Measurement<T>::Measurement(String label, T value, String unit)
   this->range = NULL;
 }
 
-uint16_t getValueColor(int value, HealthinessRange *range)
+uint16_t getValueColor(int value, const HealthinessRange *range)
 {
   if (range == NULL || value < range->good)
     return COLOR_GOOD;

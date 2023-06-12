@@ -11,24 +11,34 @@
 #include <UI.h>
 #include <Preferences.h>
 
-// TODO: refactor and use task scheduler
+// TODO: refactor using task scheduler
 
-#define SPS30_AUTO_CLEAN_DAYS 4
+constexpr auto PREFERENCES_NAMESPACE = "default";
+
+constexpr auto SPS30_AUTO_CLEAN_DAYS = 4;
 // Never increase this value unless you want to burn the sensor
-#define SGP41_CONDITIONING_SECS 10
-#define SGP41_SAMPLING_INTERVAL 0.1f
-#define SGP41_VOC_SAVE_STATE_INTERVAL_MS 10 * 60 * 1000
-#define SGP41_VOC_SAVE_STATE_BEGIN_MS 3 * 60 * 60 * 1000
-#define SGP41_VOC_SAVED_STATE_BEST_FOR_MS 10 * 60 * 1000
-#define SGP41_VOC_STATE1_KEY "sgp41_voc_state1"
-#define SGP41_VOC_STATE2_KEY "sgp41_voc_state2"
-#define SGP41_VOC_STATE_TIMESTAMP_KEY "sgp41_voc_state_timestamp"
+constexpr auto SGP41_CONDITIONING_SECS = 10;
+constexpr auto SGP41_SAMPLING_INTERVAL = 0.1f;
+constexpr auto SGP41_VOC_SAVE_STATE_INTERVAL_MS = 10 * 60 * 1000;
+constexpr auto SGP41_VOC_SAVE_STATE_BEGIN_MS = 3 * 60 * 60 * 1000;
+constexpr auto SGP41_VOC_SAVED_STATE_AGE_MS = 10 * 60 * 1000;
+// These have a length limit of 15 chars, same with namespace
+constexpr auto SGP41_VOC_STATE1_KEY = "voc_state1";
+constexpr auto SGP41_VOC_STATE2_KEY = "voc_state2";
+constexpr auto SGP41_VOC_STATE_TIMESTAMP_KEY = "voc_state_ts";
 
-#define SECOND_COLUMN_OFFSET TFT_HEIGHT / 3 * 1.2
-#define THIRD_COLUMN_OFFSET TFT_HEIGHT / 3 * 2.2
-#define NC_COLUMN_OFFSET TFT_HEIGHT / 3 * 1.5
+constexpr auto SECOND_COLUMN_OFFSET = TFT_HEIGHT / 3 * 1.2;
+constexpr auto THIRD_COLUMN_OFFSET = TFT_HEIGHT / 3 * 2.2;
+constexpr auto NC_COLUMN_OFFSET = TFT_HEIGHT / 3 * 1.5;
 
-#define PREFERENCES_NAMESPACE "default"
+constexpr HealthinessRange co2Range = {1000, 1500, 2000};
+constexpr HealthinessRange hchoRange = {30, 100, 300};
+constexpr HealthinessRange pm10Range = {25, 55, 85};
+constexpr HealthinessRange pm25Range = {30, 60, 90};
+constexpr HealthinessRange pm40Range = {35, 65, 95};
+constexpr HealthinessRange pm100Range = {50, 100, 150};
+constexpr HealthinessRange vocRange = {150, 300, 450};
+constexpr HealthinessRange noxRange = {50, 150, 250};
 
 TFT_eSPI tft = TFT_eSPI();
 Preferences preferences;
@@ -40,87 +50,67 @@ SensirionI2CSgp41 sgp41;
 VOCGasIndexAlgorithm voc_algorithm(SGP41_SAMPLING_INTERVAL);
 NOxGasIndexAlgorithm nox_algorithm;
 
-static char errorMessage[256];
-static int16_t error;
+void printSensirionError(int16_t error, String message)
+{
+  char errorMessage[256];
+
+  if (!error)
+    return;
+
+  errorToString(error, errorMessage, 256);
+
+  Serial.print(message + ": ");
+  Serial.println(errorMessage);
+}
 
 void setup()
 {
+  Serial.begin(115200);
+
   tft.init();
   tft.setRotation(1);
-  tft.fillScreen(0);
-
-  Serial.begin(115200);
+  tft.fillScreen(TFT_BLACK);
 
   preferences.begin(PREFERENCES_NAMESPACE);
 
-  // This bus is used for SCD30, SFA30 and SGP41, 18 SDA, 17 SCL (default I2C pins)
-  Wire.begin();
-  scd30.begin(Wire, SCD30_I2C_ADDR_61);
+  int16_t error;
 
-  // No idea if these are needed, but they were in the example so...
-  scd30.stopPeriodicMeasurement();
-  scd30.softReset();
+  // This bus is used for SCD30, SFA30 and SGP41, 18 SDA, 17 SCL (default ESP32 I2C pins)
+  Wire.begin();
+
+  // SCD30
+  scd30.begin(Wire, SCD30_I2C_ADDR_61);
 
   // Temp offset from my personal observations
   error = scd30.setTemperatureOffset(150);
-  if (error != NO_ERROR)
-  {
-    Serial.print("SCD30 error trying to set temperature offset: ");
-    errorToString(error, errorMessage, sizeof errorMessage);
-    Serial.println(errorMessage);
-    return;
-  }
-  // First tests show no need in this function (plus it has some painful requirements)
-  error = scd30.activateAutoCalibration(0);
-  if (error != NO_ERROR)
-  {
-    Serial.print("SCD30 error trying to (dis-)activate ASC: ");
-    errorToString(error, errorMessage, sizeof errorMessage);
-    Serial.println(errorMessage);
-    return;
-  }
+  printSensirionError(error, "SCD30 error trying to set temperature offset");
 
   error = scd30.startPeriodicMeasurement(0);
-  if (error != NO_ERROR)
-  {
-    Serial.print("SCD30 error trying to start measurements: ");
-    errorToString(error, errorMessage, sizeof errorMessage);
-    Serial.println(errorMessage);
-    return;
-  }
+  printSensirionError(error, "SCD30 error trying to start measurements");
 
+  // SFA30
   sfa3x.begin(Wire);
 
   error = sfa3x.startContinuousMeasurement();
-  if (error)
-  {
-    Serial.print("SFA30 error trying to start measurements: ");
-    errorToString(error, errorMessage, 256);
-    Serial.println(errorMessage);
-  }
+  printSensirionError(error, "SFA30 error trying to start measurements");
 
+  // SGP41
   sgp41.begin(Wire);
 
   uint16_t testResult;
   error = sgp41.executeSelfTest(testResult);
-  if (error)
-  {
-    Serial.print("SGP41 error trying to execute self-test: ");
-    errorToString(error, errorMessage, 256);
-    Serial.println(errorMessage);
-  }
-  else if (testResult != 0xD400)
+  printSensirionError(error, "SGP41 error trying to execute self-test");
+
+  if (testResult != 0xD400)
   {
     Serial.print("SGP41 self-test failed with error: ");
     Serial.println(testResult);
   }
 
-  if (millis() - preferences.getULong(SGP41_VOC_STATE_TIMESTAMP_KEY) < SGP41_VOC_SAVED_STATE_BEST_FOR_MS)
+  if (millis() - preferences.getULong(SGP41_VOC_STATE_TIMESTAMP_KEY) < SGP41_VOC_SAVED_STATE_AGE_MS)
   {
-    float state1, state2;
-
-    state1 = preferences.getFloat(SGP41_VOC_STATE1_KEY);
-    state2 = preferences.getFloat(SGP41_VOC_STATE2_KEY);
+    const float state1 = preferences.getFloat(SGP41_VOC_STATE1_KEY);
+    const float state2 = preferences.getFloat(SGP41_VOC_STATE2_KEY);
 
     if (state1 != 0 && state2 != 0 && !isnan(state1) && !isnan(state2))
     {
@@ -142,51 +132,19 @@ void setup()
   }
 
   error = sps30_set_fan_auto_cleaning_interval_days(SPS30_AUTO_CLEAN_DAYS);
-  if (error)
-  {
-    Serial.print("SPS30 error setting the auto-clean interval: ");
-    Serial.println(error);
-  }
+  printSensirionError(error, "SPS30 error setting the auto-clean interval");
 
   error = sps30_start_measurement();
-  if (error < 0)
-  {
-    Serial.println("SPS30 error starting measurements");
-  }
+  printSensirionError(error, "SPS30 error starting measurements");
 }
-
-float co2Concentration = 0.0;
-float temperature = 0.0;
-float humidity = 0.0;
-
-int16_t hcho;
-int16_t humidity_sfa;
-int16_t temperature_sfa;
-
-uint16_t rhCompensation = 0x8000;
-uint16_t tCompensation = 0x6666;
-uint16_t srawVoc = 0;
-uint16_t srawNox = 0;
-int32_t vocIndex = 0;
-int32_t noxIndex = 0;
-
-struct sps30_measurement sps30_m;
-
-ulong initMillis = 0;
-ulong vocSaveMillis = 0;
-
-HealthinessRange co2Range = {1000, 1500, 2000};
-HealthinessRange hchoRange = {30, 100, 300};
-HealthinessRange pm10Range = {25, 55, 85};
-HealthinessRange pm25Range = {30, 60, 90};
-HealthinessRange pm40Range = {35, 65, 95};
-HealthinessRange pm100Range = {50, 100, 150};
-HealthinessRange vocRange = {150, 300, 450};
-HealthinessRange noxRange = {50, 150, 250};
 
 void loop()
 {
+  int16_t error;
   uint16_t dataReady = 0;
+
+  static ulong initMillis = 0;
+  static ulong vocSaveMillis = 0;
 
   if (initMillis == 0)
   {
@@ -199,73 +157,62 @@ void loop()
   }
 
   // SCD30
+  static float co2Concentration = 0.0;
+  static float temperature = 0.0;
+  static float humidity = 0.0;
+
   error = scd30.getDataReady(dataReady);
-  if (error != NO_ERROR)
-  {
-    Serial.print("SCD30 data readiness check error: ");
-    errorToString(error, errorMessage, sizeof errorMessage);
-    Serial.println(errorMessage);
-  }
-  else if (dataReady == 1)
+  printSensirionError(error, "SCD30 data readiness check error");
+
+  if (dataReady == 1)
   {
     error = scd30.readMeasurementData(co2Concentration, temperature, humidity);
-
-    if (error != NO_ERROR)
-    {
-      Serial.print("SCD30 reading measurement data error: ");
-      errorToString(error, errorMessage, sizeof errorMessage);
-      Serial.println(errorMessage);
-    }
+    printSensirionError(error, "SCD30 reading measurement data error");
   }
 
   // SPS30
+  static sps30_measurement sps30_m;
+
   error = sps30_read_data_ready(&dataReady);
-  if (dataReady < 0)
-  {
-    Serial.print("SPS30 data readiness check error: ");
-    Serial.println(error);
-  }
-  else if (dataReady == 1)
+  printSensirionError(error, "SPS30 data readiness check error");
+
+  if (dataReady == 1)
   {
     error = sps30_read_measurement(&sps30_m);
-    if (error < 0)
-    {
-      Serial.println("SPS30 reading measurement data error: ");
-    }
+    printSensirionError(error, "SPS30 reading measurement data error");
   }
 
   // SFA30
+  static int16_t hcho = 0;
+  static int16_t humidity_sfa = 0;
+  static int16_t temperature_sfa = 0;
+
   error = sfa3x.readMeasuredValues(hcho, humidity_sfa, temperature_sfa);
-  if (error)
-  {
-    Serial.print("SFA30 reading measurement data error: ");
-    errorToString(error, errorMessage, 256);
-    Serial.println(errorMessage);
-  }
+  printSensirionError(error, "SFA30 reading measurement data error");
 
   // SGP41
-  rhCompensation = uint16_t(humidity) * 65535 / 100;
-  tCompensation = (uint16_t(temperature) + 45) * 65535 / 175;
+  static uint16_t srawVoc = 0;
+  static uint16_t srawNox = 0;
+  static uint16_t rhCompensation = uint16_t(humidity) * 65535 / 100;
+  static uint16_t tCompensation = (uint16_t(temperature) + 45) * 65535 / 175;
+  static int32_t vocIndex = 0;
+  static int32_t noxIndex = 0;
 
   if (millis() - initMillis < SGP41_CONDITIONING_SECS * 1000)
   {
     error = sgp41.executeConditioning(rhCompensation, tCompensation, srawVoc);
+    printSensirionError(error, "SGP41 conditioning error");
   }
   else
   {
     error = sgp41.measureRawSignals(rhCompensation, tCompensation, srawVoc, srawNox);
-  }
+    printSensirionError(error, "SGP41 reading measurement data error");
 
-  if (error)
-  {
-    Serial.print("SGP41 error: ");
-    errorToString(error, errorMessage, 256);
-    Serial.println(errorMessage);
-  }
-  else
-  {
-    vocIndex = voc_algorithm.process(srawVoc);
-    noxIndex = nox_algorithm.process(srawNox);
+    if (!error)
+    {
+      vocIndex = voc_algorithm.process(srawVoc);
+      noxIndex = nox_algorithm.process(srawNox);
+    }
   }
 
   if (millis() - initMillis >= SGP41_VOC_SAVE_STATE_BEGIN_MS && millis() - vocSaveMillis > SGP41_VOC_SAVE_STATE_INTERVAL_MS)
@@ -279,19 +226,14 @@ void loop()
     ret &= preferences.putFloat(SGP41_VOC_STATE2_KEY, state2);
     ret &= preferences.putULong(SGP41_VOC_STATE_TIMESTAMP_KEY, millis());
 
-    if (ret == 0)
-    {
-      Serial.println("VOC state save failed");
-    }
-    else
-    {
-      Serial.println("VOC state saved");
-    }
+    Serial.println(ret == 0 ? "VOC state save failed" : "VOC state saved");
 
     vocSaveMillis = millis();
   }
 
   // UI rendering
+
+  int16_t cursorY;
 
   tft.setTextSize(1);
   tft.setTextFont(2);
@@ -305,7 +247,7 @@ void loop()
 
   writeMeasurement(tft, Measurement<float>("T", temperature, "C"));
 
-  int16_t cursorY = tft.getCursorY();
+  cursorY = tft.getCursorY();
   tft.setCursor(SECOND_COLUMN_OFFSET, cursorY);
 
   writeMeasurement(tft, Measurement<int32_t>("VOC", vocIndex, "", &vocRange));
