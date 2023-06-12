@@ -9,17 +9,27 @@
 #include <VOCGasIndexAlgorithm.h>
 #include <NOxGasIndexAlgorithm.h>
 #include <UI.h>
+#include <Preferences.h>
 
 #define SPS30_AUTO_CLEAN_DAYS 4
 // Never increase this value unless you want to burn the sensor
 #define SGP41_CONDITIONING_SECS 10
 #define SGP41_SAMPLING_INTERVAL 0.1f
+#define SGP41_VOC_SAVE_STATE_INTERVAL_MS 10 * 60 * 1000
+#define SGP41_VOC_SAVE_STATE_BEGIN_MS 3 * 60 * 60 * 1000
+#define SGP41_VOC_SAVED_STATE_BEST_FOR_MS 10 * 60 * 1000
+#define SGP41_VOC_STATE1_KEY "sgp41_voc_state1"
+#define SGP41_VOC_STATE2_KEY "sgp41_voc_state2"
+#define SGP41_VOC_STATE_TIMESTAMP_KEY "sgp41_voc_state_timestamp"
 
 #define SECOND_COLUMN_OFFSET TFT_HEIGHT / 3 * 1.2
 #define THIRD_COLUMN_OFFSET TFT_HEIGHT / 3 * 2.2
 #define NC_COLUMN_OFFSET TFT_HEIGHT / 3 * 1.5
 
+#define PREFERENCES_NAMESPACE "default_namespace"
+
 TFT_eSPI tft = TFT_eSPI();
+Preferences preferences;
 
 SensirionI2cScd30 scd30;
 SensirionI2CSfa3x sfa3x;
@@ -38,6 +48,8 @@ void setup()
   tft.fillScreen(0);
 
   Serial.begin(115200);
+
+  preferences.begin(PREFERENCES_NAMESPACE);
 
   // This bus is used for SCD30, SFA30 and SGP41, 18 SDA, 17 SCL (default I2C pins)
   Wire.begin();
@@ -101,6 +113,23 @@ void setup()
     Serial.println(testResult);
   }
 
+  if (millis() - preferences.getULong(SGP41_VOC_STATE_TIMESTAMP_KEY) < SGP41_VOC_SAVED_STATE_BEST_FOR_MS)
+  {
+    float state1, state2;
+
+    state1 = preferences.getFloat(SGP41_VOC_STATE1_KEY);
+    state2 = preferences.getFloat(SGP41_VOC_STATE2_KEY);
+
+    if (state1 != 0 && state2 != 0 && !isnan(state1) && !isnan(state2))
+    {
+      voc_algorithm.set_states(state1, state2);
+
+      Serial.println("Restored VOC state from flash memory: ");
+      Serial.println("State 1: " + String(state1));
+      Serial.println("State 2: " + String(state2));
+    }
+  }
+
   // This bus is used for SPS30, 21 SDA, 16 SCL
   Wire1.begin(21, 16);
 
@@ -142,6 +171,7 @@ int32_t noxIndex = 0;
 struct sps30_measurement sps30_m;
 
 ulong initMillis = 0;
+ulong vocSaveMillis = 0;
 
 HealthinessRange co2Range = {1000, 1500, 2000};
 HealthinessRange hchoRange = {30, 100, 300};
@@ -159,6 +189,11 @@ void loop()
   if (initMillis == 0)
   {
     initMillis = millis();
+  }
+
+  if (vocSaveMillis == 0)
+  {
+    vocSaveMillis = millis();
   }
 
   // SCD30
@@ -229,6 +264,21 @@ void loop()
   {
     vocIndex = voc_algorithm.process(srawVoc);
     noxIndex = nox_algorithm.process(srawNox);
+  }
+
+  if (millis() - initMillis >= SGP41_VOC_SAVE_STATE_BEGIN_MS && millis() - vocSaveMillis > SGP41_VOC_SAVE_STATE_INTERVAL_MS)
+  {
+    float state1, state2;
+
+    voc_algorithm.get_states(state1, state2);
+
+    preferences.putFloat(SGP41_VOC_STATE1_KEY, state1);
+    preferences.putFloat(SGP41_VOC_STATE2_KEY, state2);
+    preferences.putULong(SGP41_VOC_STATE_TIMESTAMP_KEY, millis());
+
+    Serial.println("VOC state saved");
+
+    vocSaveMillis = millis();
   }
 
   // UI rendering
