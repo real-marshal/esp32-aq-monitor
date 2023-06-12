@@ -248,7 +248,7 @@ void loop()
   int16_t cursorY = tft.getCursorY();
   tft.setCursor(SECOND_COLUMN_OFFSET, cursorY);
 
-  writeMeasurement(tft, Measurement<int8_t>("VOC", vocIndex, "", &vocRange));
+  writeMeasurement(tft, Measurement<int32_t>("VOC", vocIndex, "", &vocRange));
 
   tft.println();
 
@@ -259,7 +259,7 @@ void loop()
   cursorY = tft.getCursorY();
   tft.setCursor(THIRD_COLUMN_OFFSET, cursorY);
 
-  writeMeasurement(tft, Measurement<int8_t>("NOx", noxIndex, "", &noxRange));
+  writeMeasurement(tft, Measurement<int32_t>("NOx", noxIndex, "", &noxRange));
 
   tft.println();
 
