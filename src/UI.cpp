@@ -5,10 +5,10 @@
 
 constexpr HealthinessRange co2Range = {1000, 1500, 2000};
 constexpr HealthinessRange hchoRange = {30, 100, 300};
-constexpr HealthinessRange pm10Range = {25, 55, 85};
-constexpr HealthinessRange pm25Range = {30, 60, 90};
-constexpr HealthinessRange pm40Range = {35, 65, 95};
-constexpr HealthinessRange pm100Range = {50, 100, 150};
+constexpr HealthinessRange pm10Range = {15, 30, 60};
+constexpr HealthinessRange pm25Range = {15, 30, 60};
+constexpr HealthinessRange pm40Range = {20, 40, 80};
+constexpr HealthinessRange pm100Range = {30, 60, 120};
 constexpr HealthinessRange vocRange = {150, 300, 450};
 constexpr HealthinessRange noxRange = {50, 150, 250};
 
