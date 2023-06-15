@@ -31,4 +31,8 @@ struct Measurement
 uint16_t getValueColor(int value, HealthinessRange *range);
 
 template <typename T>
-void writeMeasurement(TFT_eSPI &tft, const struct Measurement<T> &measurement, int extraSpaces = 0);
+void writeMeasurement(const struct Measurement<T> &measurement, int extraSpaces = 0);
+
+void initDisplay();
+
+void renderUI();
