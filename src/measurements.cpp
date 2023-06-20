@@ -34,7 +34,7 @@ void scd30Init()
   scd30.begin(Wire, SCD30_I2C_ADDR_61);
 
   // Temp offset from my personal observations
-  error = scd30.setTemperatureOffset(150);
+  error = scd30.setTemperatureOffset(200);
   printSensirionError(error, "SCD30 error trying to set temperature offset");
 
   error = scd30.startPeriodicMeasurement(0);
