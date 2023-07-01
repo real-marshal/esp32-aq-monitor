@@ -4,8 +4,7 @@
 #include <Preferences.h>
 #include <sps30.h>
 
-struct MeasurementData
-{
+struct MeasurementData {
   float co2Concentration = 0.0;
   float temperature = 0.0;
   float humidity = 0.0;
@@ -16,6 +15,12 @@ struct MeasurementData
 
   int32_t vocIndex = 0;
   int32_t noxIndex = 0;
+
+  float uva = 0.0;
+  float uvb = 0.0;
+  float uvIndex = 0.0;
+
+  float co = 0.0;
 };
 
 extern MeasurementData mData;
