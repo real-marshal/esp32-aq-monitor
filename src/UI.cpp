@@ -19,6 +19,7 @@ constexpr HealthinessRange pm40Range = {20, 40, 80};
 constexpr HealthinessRange pm100Range = {30, 60, 120};
 constexpr HealthinessRange vocRange = {150, 300, 450};
 constexpr HealthinessRange noxRange = {50, 150, 250};
+constexpr HealthinessRange uvIndexRange = {3, 6, 8};
 
 constexpr auto SECOND_COLUMN_OFFSET = TFT_HEIGHT / 3 * 1.2;
 constexpr auto THIRD_COLUMN_OFFSET = TFT_HEIGHT / 3 * 2.2;
@@ -99,7 +100,7 @@ void writeMeasurement(const Measurement<T>& measurement, int extraSpaces) {
 
   tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
   tft.print(measurement.label + labelSuffix);
-  tft.setTextColor(getValueColor(round(measurement.value), measurement.range),
+  tft.setTextColor(getValueColor(measurement.value, measurement.range),
                    TFT_BLACK);
   tft.setTextPadding(tft.textWidth("9999", 2));
   tft.print(measurement.value);
@@ -209,15 +210,16 @@ void renderUI() {
 
   cursorY = tft.getCursorY();
 
-  writeMeasurement(Measurement<float>("UV Ind", mData.uvIndex, ""));
+  writeMeasurement(
+      Measurement<float>("UV Ind", mData.uvIndex, "", &uvIndexRange));
 
   tft.setCursor(SECOND_COLUMN_OFFSET, cursorY);
 
-  writeMeasurement(Measurement<float>("UVA", mData.uva, ""));
+  writeMeasurement(Measurement<int>("UVA", mData.uva, ""));
 
   tft.setCursor(THIRD_COLUMN_OFFSET, cursorY);
 
-  writeMeasurement(Measurement<float>("UVB", mData.uvb, ""));
+  writeMeasurement(Measurement<int>("UVB", mData.uvb, ""));
 }
 
 }  // namespace UI

@@ -176,6 +176,9 @@ void sgp41SaveState() {
 
 void veml6075Init() {
   veml6075.begin(Wire);
+
+  veml6075.setIntegrationTime(VEML6075::IT_400MS);
+  veml6075.setHighDynamic(VEML6075::DYNAMIC_HIGH);
 }
 
 void veml6075Measure() {

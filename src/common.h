@@ -16,8 +16,8 @@ struct MeasurementData {
   int32_t vocIndex = 0;
   int32_t noxIndex = 0;
 
-  float uva = 0.0;
-  float uvb = 0.0;
+  int32_t uva = 0.0;
+  int32_t uvb = 0.0;
   float uvIndex = 0.0;
 
   float co = 0.0;

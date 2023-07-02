@@ -38,7 +38,7 @@ Task sgp41SaveStateTask(SGP41_VOC_SAVE_STATE_INTERVAL_MS,
                         TASK_FOREVER,
                         &Measurements::sgp41SaveState,
                         &scheduler);
-Task veml6075MeasureTask(1000,
+Task veml6075MeasureTask(400,
                          TASK_FOREVER,
                          &Measurements::veml6075Measure,
                          &scheduler,
