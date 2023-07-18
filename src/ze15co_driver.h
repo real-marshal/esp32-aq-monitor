@@ -6,7 +6,8 @@ enum ze15coError : uint8_t {
   NOT_ERROR,
   CHECKSUM_MISMATCH,
   SENSOR_FAILURE,
-  NOT_AVAILABLE
+  NOT_AVAILABLE,
+  WRITE_ERROR
 };
 
 class ZE15CO {

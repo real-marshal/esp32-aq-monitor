@@ -56,6 +56,12 @@ void scd30Measure() {
     error = scd30.readMeasurementData(mData.co2Concentration, mData.temperature,
                                       mData.humidity);
     printSensirionError(error, "SCD30 reading measurement data error");
+
+    if (error) {
+      mData.co2Concentration = std::nanf("");
+      mData.temperature = std::nanf("");
+      mData.humidity = std::nanf("");
+    }
   }
 }
 
@@ -103,6 +109,11 @@ void sfa30Measure() {
 
   error = sfa3x.readMeasuredValues(hcho, humidity_sfa, temperature_sfa);
   printSensirionError(error, "SFA30 reading measurement data error");
+
+  if (error) {
+    mData.hcho = std::nanf("");
+    return;
+  }
 
   mData.hcho = hcho / 5.0f;
 }
@@ -182,9 +193,28 @@ void veml6075Init() {
 }
 
 void veml6075Measure() {
-  mData.uva = veml6075.a();
-  mData.uvb = veml6075.b();
-  mData.uvIndex = veml6075.index();
+  static int32_t uva = 0;
+  static int32_t uvb = 0;
+  static float uvi = 0.0;
+
+  uva = veml6075.a();
+  uvb = veml6075.b();
+  uvi = veml6075.index();
+
+  // Currently there's some random rare I2C issues, not only with this sensor,
+  // but on the whole bus which need to be solved on a hardware level, until
+  // then I do this to avoid render issues
+  if (uva < 10000 && uva > -100) {
+    mData.uva = uva;
+  }
+
+  if (uvb < 10000 && uvb > -100) {
+    mData.uvb = uvb;
+  }
+
+  if (uvi < 20 && uvi > -1) {
+    mData.uvIndex = uvi;
+  }
 }
 
 void ze15coInit() {
@@ -195,19 +225,27 @@ void ze15coInit() {
 void ze15coMeasure() {
   ze15coError error = ze15co.readCO(mData.co);
 
-  if (error == ze15coError::SENSOR_FAILURE) {
-    Serial.println("ZE15CO: sensor failure!");
-    // TODO: use some kind of notification mechanism instead
-    mData.co = 6.66666666;
-    return;
+  if (error) {
+    mData.co = std::nanf("");
   }
 
-  if (error == ze15coError::CHECKSUM_MISMATCH) {
-    Serial.println("ZE15CO: checksum mismatch");
-  }
-
-  if (error == ze15coError::NOT_AVAILABLE) {
-    Serial.println("ZE15CO: not available");
+  switch (error) {
+    case ze15coError::SENSOR_FAILURE: {
+      Serial.println("ZE15CO: sensor failure!");
+      return;
+    }
+    case ze15coError::CHECKSUM_MISMATCH: {
+      Serial.println("ZE15CO: checksum mismatch");
+      return;
+    }
+    case ze15coError::NOT_AVAILABLE: {
+      Serial.println("ZE15CO: not available");
+      return;
+    }
+    case ze15coError::WRITE_ERROR: {
+      Serial.println("ZE15CO: write error");
+      return;
+    }
   }
 }
 

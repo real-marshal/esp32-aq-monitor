@@ -13,7 +13,12 @@ void ZE15CO::begin(HardwareSerial& serial) {
 ze15coError ZE15CO::readCO(float& value) {
   static uint8_t response[MESSAGE_SIZE];
 
-  serial->write(READ_COMMAND, MESSAGE_SIZE);
+  size_t bytesWritten = serial->write(READ_COMMAND, MESSAGE_SIZE);
+
+  if (!bytesWritten) {
+    return ze15coError::WRITE_ERROR;
+  }
+
   serial->flush();
 
   if (serial->available() < MESSAGE_SIZE) {

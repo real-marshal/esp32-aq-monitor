@@ -79,8 +79,9 @@ Measurement<T>::Measurement(String label, T value, String unit) {
   this->range = nullptr;
 }
 
-uint16_t getValueColor(int value, const HealthinessRange* range) {
-  if (range == nullptr || value < range->good)
+template <typename T>
+uint16_t getValueColor(T value, const HealthinessRange* range) {
+  if (range == nullptr || std::isnan(value) || value < range->good)
     return COLOR_GOOD;
   if (value < range->decent)
     return COLOR_DECENT;
@@ -103,7 +104,11 @@ void writeMeasurement(const Measurement<T>& measurement, int extraSpaces) {
   tft.setTextColor(getValueColor(measurement.value, measurement.range),
                    TFT_BLACK);
   tft.setTextPadding(tft.textWidth("9999", 2));
-  tft.print(measurement.value);
+  if (std::isnan(measurement.value)) {
+    tft.print("---");
+  } else {
+    tft.print(measurement.value);
+  }
   tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
   tft.setTextPadding(tft.textWidth(measurement.unit + " ", 2));
   tft.println(measurement.unit + " ");
