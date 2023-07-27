@@ -62,6 +62,9 @@ void setup() {
   // This bus is used for SPS30, 21 SDA, 16 SCL
   Wire1.begin(21, 16);
 
+  // Piezo
+  pinMode(10, OUTPUT);
+
   Measurements::scd30Init();
 
   Measurements::sfa30Init();

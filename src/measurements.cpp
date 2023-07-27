@@ -225,6 +225,10 @@ void ze15coInit() {
 void ze15coMeasure() {
   ze15coError error = ze15co.readCO(mData.co);
 
+  if (mData.co > 50) {
+    tone(10, 100);
+  }
+
   if (error) {
     mData.co = std::nanf("");
   }
