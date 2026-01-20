@@ -1,5 +1,10 @@
 ## Air quality monitor using ESP32-S3 (with LilyGO T-Display-S3 devboard)
 
+<div>
+  <img src="aqm_1.jpeg" width="48%">
+  <img src="aqm_2.jpeg" width="48%">
+</div>
+
 **Before building don't forget to choose the correct display driver in TFT_eSPI/User_Setup_Select.h**
 
 Currently connected sensors:
